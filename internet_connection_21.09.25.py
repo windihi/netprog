@@ -40,5 +40,5 @@ while run:
             players.remove(s)
             print("socket закрыт")
     
-    time.sleep(1)
+    time.sleep(0.01)
 pg.quit()

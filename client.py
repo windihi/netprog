@@ -38,6 +38,7 @@ while run:
     print(data)
     screen.fill("grey")
     pg.draw.circle(screen,(255,0,0),CENTER,radius)
+    pg.draw.line(screen,(0,0,0),CENTER,coords)
     pg.display.update()
 pg.quit()
 
