@@ -1,9 +1,59 @@
 import socket
 import time
 import pygame as pg
+from sqlalchemy import create_engine
+from sqlalchemy.orm import declarative_base
+from sqlalchemy import Column,Integer,String
+from sqlalchemy.orm import sessionmaker
+import psycopg2
+import math
 
-WIDTH = 800
-HEIGHT = 600
+POLEWIDTH = 4000
+POLEHEIGHT = 4000
+WIDTH = 300
+HEIGHT = 300
+FPS = 60
+PROP = WIDTH/POLEWIDTH
+
+
+Base = declarative_base()
+class Player(Base):
+    __tablename__ = "gamers"
+    id = Column(Integer,primary_key=True,autoincrement=True)
+    name = Column(String(250))
+    address = Column(String)
+    x = Column(Integer,default=500)
+    y = Column(Integer,default=500)
+    size = Column(Integer,default=50)
+    errors = Column(Integer,default=0)
+    abs_speed = Column(Integer,default=1)
+    speed_x = Column(Integer,default=0)
+    speed_y = Column(Integer,default=0)
+
+    def __init__(self,name,address):
+        self.name = name
+        self.address = address
+
+class LocalPlayer():
+    def __init__(self,id,name,socket,address):
+        self.id = id
+        self.db: Player = s.get(Player, self.id)
+        self.socket = socket
+        self.name = name
+        self.address = addr
+        self.x = 500
+        self.y = 500
+        self.size = 50
+        self.errors = 0
+        self.abs_speed = 1
+        self.speed_x = 0
+        self.speed_y = 0
+
+engine = create_engine("postgresql+psycopg2://postgres:gh538000@localhost/postgres")
+Session = sessionmaker(engine)
+s = Session()
+
+Base.metadata.create_all(engine)
 
 mainsocket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 mainsocket.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
@@ -15,30 +65,48 @@ print("socket создан")
 pg.init()
 screen = pg.display.set_mode((WIDTH,HEIGHT))
 pg.display.set_caption("bacteria")
+clock = pg.time.Clock()
 
-players = []
+players = {}
 
 run = True
 while run:
+    clock.tick(FPS)
     for event in pg.event.get():
         if event == pg.QUIT:
             run = False
-        
+                
     try:
         newsocket,addr = mainsocket.accept()
-        print(newsocket,addr)
         newsocket.setblocking(False)
-        players.append(newsocket)
+        new_player = Player("test",addr)
+        s.merge(new_player)
+        s.commit()
+        q = s.query(Player).filter(Player.address == f"({addr[0]},{addr[1]})").all()
+        for u in q:
+            loc_player = LocalPlayer(u.id,u.name,newsocket,u.address)
+            players[u.id] = loc_player
     except BlockingIOError:
         pass
 
-    for s in players:
+    screen.fill("black")
+
+    for id in list(players):
+        
         try:
-            s.send("sync".encode())
+            for id in list(players):
+                serv_x = round(players[id].x * PROP)
+                serv_y = round(players[id].y * PROP)
+                serv_r = round(players[id].size * PROP)
+                print(serv_x,serv_y,serv_r)
+                pg.draw.circle(screen,(255,0,0),(serv_x,serv_y),serv_r)
+            players[id].socket.send("sync".encode())
         except:
-            s.close()
-            players.remove(s)
+            players[id].socket.close()
+            del players[id]
+            s.query(Player).filter(Player.id == id).delete()
+            s.commit()
             print("socket закрыт")
-    
-    time.sleep(0.01)
+
+    pg.display.update()
 pg.quit()

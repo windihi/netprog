@@ -1,5 +1,4 @@
 import socket
-import time
 import pygame as pg
 import math
 
