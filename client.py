@@ -21,6 +21,17 @@ def check_and_login():
     else:
         tkinter.messagebox.showerror("Ошибка","Выберите имя и Цвет")
 
+def find_visible_players(data):
+    first = None
+    for num,sign in enumerate(data):
+        if sign == "<":
+            first = num
+        if sign == ">" and first is not None:
+            second = num
+            res = data[first+1:second]
+            return res    
+    return ""   
+
 root = tk.Tk()
 root.title("Вход")
 root.geometry("400x400")
@@ -58,7 +69,10 @@ while run:
             coords = pg.mouse.get_pos() 
             vecc = coords[0] - CENTER[0],coords[1] - CENTER[1]
             lenght = math.sqrt(vecc[0]**2 + vecc[1]**2)
-            vecc = vecc[0]/lenght,vecc[1]/lenght
+            try:
+                vecc = vecc[0]/lenght,vecc[1]/lenght
+            except:
+                pass
             if lenght <= radius:
                 vecc = (0,0)
             if vecc != ovec:
@@ -66,7 +80,18 @@ while run:
                 mainsocket.send(f"<{vecc[0]},{vecc[1]}>".encode())
 
     data = mainsocket.recv(1024).decode()
+    data = find_visible_players(data).split(",")
     screen.fill("grey")
+
+    if data != [""]:
+        for s in data:
+            sp = s.split()
+            x = CENTER[0] + int(sp[0])
+            y = CENTER[1] + int(sp[1])
+            size = int(sp[2])
+            color = sp[3]
+            pg.draw.circle(screen,color,(x,y),size) 
+
     pg.draw.circle(screen,COLOR,CENTER,radius)
     pg.draw.line(screen,(0,0,0),CENTER,coords)
     pg.display.update()

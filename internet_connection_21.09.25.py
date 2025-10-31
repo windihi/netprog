@@ -75,14 +75,40 @@ class LocalPlayer():
         self.x += self.speed_x
         self.y += self.speed_y
 
-def vision(id):
-    for i in range(len(list(players))):
+def check_visibility(dict):
+    lp = list(players)
+    for x in range(0,len(lp)):
+        for i in range(x+1,len(lp)):
+            hero1 = players[lp[x]]
+            hero2 = players[lp[i]]
+
+            dist = math.sqrt((hero1.x - hero2.x)**2 + (hero1.y - hero2.y)**2)
+            vision_dist1 = math.sqrt((hero1.w_vision//2)**2 + (hero1.h_vision//2)**2) + hero2.size
+            vision_dist2 = math.sqrt((hero2.w_vision//2)**2 + (hero2.h_vision//2)**2) + hero1.size
+
+            if dist <= vision_dist1:
+                vis_x = str(round(hero2.x - hero1.x))
+                vis_y = str(round(hero2.y - hero1.y))
+                size = str(round(hero2.size))
+                color = hero2.color
+
+                data = vis_x+" "+vis_y+" "+size+" "+color
+                dict[hero1.id].append(data)
+            
+            if dist <= vision_dist2:
+                vis_x = str(round(hero1.x - hero2.x))
+                vis_y = str(round(hero1.y - hero2.y))
+                size = str(round(hero1.size))
+                color = hero1.color
+
+                data = vis_x+" "+vis_y+" "+size+" "+color
+                dict[hero2.id].append(data)
         #сравнение расстояния между бактериями и диагональю экрана + радиус
         #цикл попарного прохода по словарю 
         #если истинно формируем данные к добавлению в список(x,y,size,color)
         #помещаем данные в шаблон строки
-        #нужно сравнить видимость второго игрока первым
-        pass
+        #нужно сравнить видимость второго игрока первым 
+        
 
 engine = create_engine("postgresql+psycopg2://postgres:gh538000@localhost/postgres")
 Session = sessionmaker(engine)
@@ -103,7 +129,6 @@ pg.display.set_caption("bacteria")
 clock = pg.time.Clock()
 
 players = {}
-visible_bac = {}
 
 run = True
 while run:
@@ -138,15 +163,23 @@ while run:
 
     for id in list(players):
         players[id].update()
-
+        
+    
+    visible_bac = {}
     for id in list(players):
         visible_bac[id] = []
+    check_visibility(visible_bac)
+
+    for id in list(players):
+        visible_bac[id] = "<" + ",".join(visible_bac[id])+">"
+
+    
 
     screen.fill("black")
 
     for id in list(players):    
         try:
-            players[id].socket.send("sync".encode())
+            players[id].socket.send(visible_bac[id].encode())
         except:
             players[id].socket.close()
             del players[id]
