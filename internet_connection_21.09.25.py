@@ -7,6 +7,8 @@ from sqlalchemy import Column,Integer,String
 from sqlalchemy.orm import sessionmaker
 import psycopg2
 import math
+from russian_names import RussianNames
+import random
 
 POLEWIDTH = 4000
 POLEHEIGHT = 4000
@@ -14,7 +16,13 @@ WIDTH = 300
 HEIGHT = 300
 FPS = 60
 PROP = WIDTH/POLEWIDTH
-
+COLORS = ['Maroon', 'DarkRed', 'FireBrick', 'Red', 'Salmon', 'Tomato', 'Coral', 'OrangeRed',
+           'Chocolate', 'SandyBrown', 'DarkOrange', 'Orange', 'DarkGoldenrod', 'Goldenrod', 'Gold',
+             'Olive', 'Yellow', 'YellowGreen', 'GreenYellow', 'Chartreuse', 'LawnGreen', 'Green',
+            'Lime', 'Lime Green', 'SpringGreen', 'MediumSpringGreen', 'Turquoise',
+            'LightSeaGreen', 'MediumTurquoise', 'Teal', 'DarkCyan', 'Aqua', 'Cyan', 'Dark Turquoise',
+            'DeepSkyBlue', 'DodgerBlue', 'RoyalBlue', 'Navy', 'DarkBlue', 'MediumBlue']
+BOTSQUANTITY = 10
 
 Base = declarative_base()
 class Player(Base):
@@ -43,7 +51,7 @@ class LocalPlayer():
         self.db: Player = s.get(Player, self.id)
         self.socket = socket
         self.name = name
-        self.address = addr
+        self.address = address
         self.x = 500
         self.y = 500
         self.size = 50
@@ -72,8 +80,50 @@ class LocalPlayer():
         self.speed_y = vecl[1] * self.abs_speed
 
     def update(self):
-        self.x += self.speed_x
-        self.y += self.speed_y
+        if self.x - self.size <= 0:
+            if self.speed_x >= 0:
+                self.x += self.speed_x
+        elif self.x + self.size >= POLEWIDTH:
+            if self.speed_x <= 0:
+                self.x += self.speed_x
+        else:
+            self.x += self.speed_x
+        
+        if self.y - self.size <= 0:
+            if self.speed_y >= 0:
+                self.y += self.speed_y
+        elif self.y + self.size >= POLEHEIGHT:
+            if self.speed_y <= 0:
+                self.y += self.speed_y
+        else:
+            self.y += self.speed_y
+
+    def sync(self):
+        self.db.size = self.size
+        self.db.abs_speed = self.abs_speed
+        self.db.speed_x = self.speed_x
+        self.db.speed_y = self.speed_y
+        self.db.errors = self.errors
+        self.db.x = self.x
+        self.db.y = self.y
+        self.db.color = self.color
+        self.db.w_vision = self.w_vision
+        self.db.h_vision = self.h_vision
+        s.merge(self.db)
+        s.commit()
+
+    def load(self):
+        self.size = self.db.size
+        self.abs_speed = self.db.abs_speed
+        self.speed_x = self.db.speed_x
+        self.speed_y = self.db.speed_y
+        self.errors = self.db.errors
+        self.x = self.db.x
+        self.y = self.db.y
+        self.color = self.db.color
+        self.w_vision = self.db.w_vision
+        self.h_vision = self.db.h_vision
+        return self
 
 def check_visibility(dict):
     lp = list(players)
@@ -123,18 +173,34 @@ mainsocket.setblocking(False)
 mainsocket.listen(5)
 print("socket создан")
 
+players = {}
+
+bots_names = RussianNames(count=BOTSQUANTITY*2,patronymic=False,surename=False,rare=True)
+bots_names = list(set(bots_names))
+for n in range(BOTSQUANTITY):
+    bot = Player(bots_names[n],None)
+    bot.color = random.choice(COLORS)
+    bot.x = random.randint(0,POLEWIDTH)
+    bot.y = random.randint(0,POLEHEIGHT)
+    bot.speed_x = random.randint(-1,1)
+    bot.speed_y = random.randint(-1,1)
+    bot.size = random.randint(10,100)
+    s.add(bot)
+    s.commit()
+    botlocal = LocalPlayer(bot.id,bot.name,None,None,bot.color).load()
+    players[botlocal.id] = botlocal
+
 pg.init()
 screen = pg.display.set_mode((WIDTH,HEIGHT))
 pg.display.set_caption("bacteria")
 clock = pg.time.Clock()
 
-players = {}
 
 run = True
 while run:
     clock.tick(FPS)
     for event in pg.event.get():
-        if event == pg.QUIT:
+        if event.type == pg.QUIT:
             run = False
                 
     try:
@@ -178,14 +244,15 @@ while run:
     screen.fill("black")
 
     for id in list(players):    
-        try:
-            players[id].socket.send(visible_bac[id].encode())
-        except:
-            players[id].socket.close()
-            del players[id]
-            s.query(Player).filter(Player.id == id).delete()
-            s.commit()
-            print("socket закрыт")
+        if players[id].socket is not None:
+            try:
+                players[id].socket.send(visible_bac[id].encode())
+            except:
+                players[id].socket.close()
+                del players[id]
+                s.query(Player).filter(Player.id == id).delete()
+                s.commit()
+                print("socket закрыт")
     
     for id in list(players):
         serv_x = round(players[id].x * PROP)
@@ -195,3 +262,6 @@ while run:
 
     pg.display.update()
 pg.quit()
+mainsocket.close()
+s.query(Player).delete()
+s.commit()

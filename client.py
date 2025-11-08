@@ -37,7 +37,12 @@ root.title("Вход")
 root.geometry("400x400")
 root["bg"] = "grey"
 
-COLORS = ['Maroon', 'DarkRed', 'FireBrick', 'Red', 'Salmon', 'Tomato', 'Coral', 'OrangeRed', 'Chocolate', 'SandyBrown', 'DarkOrange', 'Orange', 'DarkGoldenrod', 'Goldenrod', 'Gold', 'Olive', 'Yellow', 'YellowGreen', 'GreenYellow', 'Chartreuse', 'LawnGreen', 'Green', 'Lime', 'Lime Green', 'SpringGreen', 'MediumSpringGreen', 'Turquoise', 'LightSeaGreen', 'MediumTurquoise', 'Teal', 'DarkCyan', 'Aqua', 'Cyan', 'Dark Turquoise', 'DeepSkyBlue', 'DodgerBlue', 'RoyalBlue', 'Navy', 'DarkBlue', 'MediumBlue.']
+COLORS = ['Maroon', 'DarkRed', 'FireBrick', 'Red', 'Salmon', 'Tomato', 'Coral', 'OrangeRed',
+           'Chocolate', 'SandyBrown', 'DarkOrange', 'Orange', 'DarkGoldenrod', 'Goldenrod', 'Gold',
+             'Olive', 'Yellow', 'YellowGreen', 'GreenYellow', 'Chartreuse', 'LawnGreen', 'Green',
+               'Lime', 'Lime Green', 'SpringGreen', 'MediumSpringGreen', 'Turquoise',
+                 'LightSeaGreen', 'MediumTurquoise', 'Teal', 'DarkCyan', 'Aqua', 'Cyan', 'Dark Turquoise',
+                   'DeepSkyBlue', 'DodgerBlue', 'RoyalBlue', 'Navy', 'DarkBlue', 'MediumBlue']
 COLOR = tk.StringVar(value=COLORS[0])
 
 entry = ttk.Entry(root)
@@ -63,7 +68,7 @@ pg.display.set_caption("bacteria")
 run = True
 while run:
     for event in pg.event.get():
-        if event == pg.QUIT:
+        if event.type == pg.QUIT:
             run = False
         if pg.mouse.get_focused():
             coords = pg.mouse.get_pos() 
