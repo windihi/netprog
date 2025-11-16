@@ -86,6 +86,8 @@ while run:
 
     data = mainsocket.recv(1024).decode()
     data = find_visible_players(data).split(",")
+    radius = int(data[-1])
+    data = data[0:-1]
     screen.fill("grey")
 
     if data != [""]:
