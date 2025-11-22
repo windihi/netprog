@@ -4,6 +4,7 @@ import math
 import tkinter as tk
 from tkinter import ttk
 import tkinter.messagebox
+pg.font.init()
 
 WIDTH = 800
 HEIGHT = 600
@@ -11,6 +12,7 @@ CENTER = (WIDTH//2,HEIGHT//2)
 NAME = None
 radius = 50
 ovec = (0,0)
+font = pg.font.SysFont('Arial', 30)
 
 def check_and_login():
     global NAME,COLOR
@@ -41,7 +43,7 @@ COLORS = ['Maroon', 'DarkRed', 'FireBrick', 'Red', 'Salmon', 'Tomato', 'Coral', 
            'Chocolate', 'SandyBrown', 'DarkOrange', 'Orange', 'DarkGoldenrod', 'Goldenrod', 'Gold',
              'Olive', 'Yellow', 'YellowGreen', 'GreenYellow', 'Chartreuse', 'LawnGreen', 'Green',
                'Lime', 'Lime Green', 'SpringGreen', 'MediumSpringGreen', 'Turquoise',
-                 'LightSeaGreen', 'MediumTurquoise', 'Teal', 'DarkCyan', 'Aqua', 'Cyan', 'Dark Turquoise',
+                 'LightSeaGreen', 'MediumTurquoise', 'Teal', 'DarkCyan', 'Aqua', 'Cyan', 'DarkTurquoise',
                    'DeepSkyBlue', 'DodgerBlue', 'RoyalBlue', 'Navy', 'DarkBlue', 'MediumBlue']
 COLOR = tk.StringVar(value=COLORS[0])
 
@@ -59,7 +61,7 @@ mainsocket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 mainsocket.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
 mainsocket.connect(("localhost",12424))
 
-mainsocket.send(f"{NAME},{COLOR}".encode())
+mainsocket.send(f"<{NAME},{COLOR}>".encode())
 
 pg.init()
 screen = pg.display.set_mode((WIDTH,HEIGHT))
@@ -86,18 +88,28 @@ while run:
 
     data = mainsocket.recv(1024).decode()
     data = find_visible_players(data).split(",")
-    radius = int(data[-1])
-    data = data[0:-1]
+
     screen.fill("grey")
 
     if data != [""]:
+        radius = int(data[-1])
+        data = data[0:-1]
         for s in data:
-            sp = s.split()
-            x = CENTER[0] + int(sp[0])
-            y = CENTER[1] + int(sp[1])
-            size = int(sp[2])
-            color = sp[3]
-            pg.draw.circle(screen,color,(x,y),size) 
+            try:
+                sp = s.split()
+                x = CENTER[0] + int(sp[0])
+                y = CENTER[1] + int(sp[1])
+                size = int(sp[2])
+                color = sp[3]
+                speed_x = sp[4][0:4]
+                speed_y = sp[5][0:4]
+                pg.draw.circle(screen,color,(x,y),size) 
+                tsx = font.render(speed_x,True,(0,0,0))
+                tsy = font.render(speed_y,True,(0,0,0))
+                screen.blit(tsx,(x-15,y-15))
+                screen.blit(tsy,(x-5,y+15))
+            except:
+                pg.draw.circle(screen,color,(x,y),size) 
 
     pg.draw.circle(screen,COLOR,CENTER,radius)
     pg.draw.line(screen,(0,0,0),CENTER,coords)

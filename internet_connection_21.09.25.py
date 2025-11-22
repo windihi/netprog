@@ -20,7 +20,7 @@ COLORS = ['Maroon', 'DarkRed', 'FireBrick', 'Red', 'Salmon', 'Tomato', 'Coral', 
            'Chocolate', 'SandyBrown', 'DarkOrange', 'Orange', 'DarkGoldenrod', 'Goldenrod', 'Gold',
              'Olive', 'Yellow', 'YellowGreen', 'GreenYellow', 'Chartreuse', 'LawnGreen', 'Green',
             'Lime', 'Lime Green', 'SpringGreen', 'MediumSpringGreen', 'Turquoise',
-            'LightSeaGreen', 'MediumTurquoise', 'Teal', 'DarkCyan', 'Aqua', 'Cyan', 'Dark Turquoise',
+            'LightSeaGreen', 'MediumTurquoise', 'Teal', 'DarkCyan', 'Aqua', 'Cyan', 'DarkTurquoise',
             'DeepSkyBlue', 'DodgerBlue', 'RoyalBlue', 'Navy', 'DarkBlue', 'MediumBlue']
 BOTSQUANTITY = 20
 FOODSIZE = 20
@@ -60,7 +60,7 @@ class LocalPlayer():
         self.size = 50
         self.color = color
         self.errors = 0
-        self.abs_speed = 1
+        self.abs_speed = 10/math.sqrt(self.size)
         self.speed_x = 0
         self.speed_y = 0
         self.w_vision = 800
@@ -144,6 +144,7 @@ def check_visibility(dict):
                     hero.size = math.sqrt(hero.size**2 + f.size**2)
                     hero.new_abs_speed()
                     f.size = 0
+                    foods.remove(f)
 
                 if hero.socket is not None:
                     vis_x = str(round(f.x - hero.x))
@@ -175,7 +176,7 @@ def check_visibility(dict):
                     size = str(round(hero2.size))
                     color = hero2.color
 
-                    data = vis_x+" "+vis_y+" "+size+" "+color
+                    data = vis_x+" "+vis_y+" "+size+" "+color+" "+str(hero2.speed_x)+" "+str(hero2.speed_y)
                     dict[hero1.id].append(data)
                 
             
@@ -192,7 +193,7 @@ def check_visibility(dict):
                     size = str(round(hero1.size))
                     color = hero1.color
 
-                    data = vis_x+" "+vis_y+" "+size+" "+color
+                    data = vis_x+" "+vis_y+" "+size+" "+color+" "+str(hero1.speed_x)+" "+str(hero1.speed_y)
                     dict[hero2.id].append(data)
         #сравнение расстояния между бактериями и диагональю экрана + радиус
         #цикл попарного прохода по словарю 
@@ -207,6 +208,41 @@ class Food():
         self.y = y
         self.size = size
         self.color = color
+
+def name_converter(data):
+    first = None
+    for num,sign in enumerate(data):
+        if sign == "<":
+            first = num
+        if sign == ">" and first is not None:
+            second = num
+            res = data[first+1:second]
+            return res
+        
+def create_food(quantity):
+    for f in range(0,quantity):
+        x = random.randint(0,POLEWIDTH)
+        y = random.randint(0,POLEHEIGHT)
+        color = random.choice(COLORS)
+        food = Food(x,y,FOODSIZE,color)
+        foods.append(food)
+
+def create_bots(quantity):
+    bots_names = RussianNames(count=BOTSQUANTITY*2,patronymic=False,surename=False,rare=True)
+    bots_names = list(set(bots_names))
+    for n in range(quantity):
+        bot = Player(bots_names[n],None)
+        bot.color = random.choice(COLORS)
+        bot.x = random.randint(0,POLEWIDTH)
+        bot.y = random.randint(0,POLEHEIGHT)
+        bot.speed_x = random.randint(-1,1)
+        bot.speed_y = random.randint(-1,1)
+        bot.size = random.randint(10,100)
+        bot.abs_speed = 10/math.sqrt(bot.size)
+        s.add(bot)
+        s.commit()
+        botlocal = LocalPlayer(bot.id,bot.name,None,None,bot.color).load()
+        players[botlocal.id] = botlocal
 
 engine = create_engine("postgresql+psycopg2://postgres:gh538000@localhost/postgres")
 Session = sessionmaker(engine)
@@ -224,27 +260,8 @@ print("socket создан")
 players = {}
 foods = []
 
-bots_names = RussianNames(count=BOTSQUANTITY*2,patronymic=False,surename=False,rare=True)
-bots_names = list(set(bots_names))
-for n in range(BOTSQUANTITY):
-    bot = Player(bots_names[n],None)
-    bot.color = random.choice(COLORS)
-    bot.x = random.randint(0,POLEWIDTH)
-    bot.y = random.randint(0,POLEHEIGHT)
-    bot.speed_x = random.randint(-1,1)
-    bot.speed_y = random.randint(-1,1)
-    bot.size = random.randint(10,100)
-    s.add(bot)
-    s.commit()
-    botlocal = LocalPlayer(bot.id,bot.name,None,None,bot.color).load()
-    players[botlocal.id] = botlocal
-
-for f in range(0,FOODQUANTITY):
-    x = random.randint(0,POLEWIDTH)
-    y = random.randint(0,POLEHEIGHT)
-    color = random.choice(COLORS)
-    food = Food(x,y,FOODSIZE,color)
-    foods.append(food)
+create_bots(BOTSQUANTITY)
+create_food(FOODQUANTITY)
 
 pg.init()
 screen = pg.display.set_mode((WIDTH,HEIGHT))
@@ -261,7 +278,7 @@ while run:
         if event.type == pg.QUIT:
             run = False
 
-    if tick % 50 == 0:            
+    if tick % 300 == 0:            
         try:
             newsocket,addr = mainsocket.accept()
             newsocket.setblocking(False)
@@ -269,6 +286,7 @@ while run:
             s.merge(new_player)
             s.commit()
             data = newsocket.recv(1024).decode()
+            data = name_converter(data)
             name,color = data.split(",")
             s.query(Player).filter(Player.address == f"({addr[0]},{addr[1]})").update({"name":name,"color":color})
             s.commit()
@@ -279,6 +297,22 @@ while run:
         except BlockingIOError:
             pass
 
+
+    if tick % 3000 == 0:
+        if len(foods) < FOODQUANTITY/3:
+            ftc = FOODQUANTITY - len(foods)
+            create_food(ftc)
+            print("еда создана")
+        b = 0
+        for id in list(players):
+            if players[id].socket == None:
+                b += 1
+        if b < BOTSQUANTITY/3:
+            btc = BOTSQUANTITY - b
+            create_bots(btc)
+            print("боты созданы")
+
+
     for id in list(players):
         if players[id].socket is not None:
             try:
@@ -288,7 +322,9 @@ while run:
                 pass
         else:
             if tick % 400 == 0:
-                vec = f"<{random.uniform(-1.0,1.0)},{random.uniform(-1.0,1.0)}>"
+                vx = random.uniform(-1.0,1.0)
+                vy = math.sqrt(1 - vx**2) * random.choice([1,-1])
+                vec = f"<{vx},{vy}>"
                 players[id].change_speed(vec)
     
 
